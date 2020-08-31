@@ -1,0 +1,350 @@
+---
+title: "cind110_Assignment_02"
+author: "Ben Kacikanis"
+output:
+  html_document:
+    df_print: paged
+due: March 13, 2020
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+Use RStudio for this assignment. 
+Edit the file `A2_W20_Q.Rmd` and insert your R code where wherever you see the string "#INSERT YOUR QUERY HERE"
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document.
+
+This assignment makes use of schema and data that were adapted from:
+R. Elmasri, S.B. Navathe (2016). Fundamentals of Database Systems, 7th Edition, Addison-Wesley
+
+
+#Setting the working diectory and establishing a connection to MYSQL Server
+```{r}
+install.packages('RMySQL', dependencies = TRUE, repos = "http://cran.us.r-project.org")
+library(RMySQL)
+sqlQuery <- function (query) {
+
+  # creating DB connection object with RMysql package
+  # Please consider updating the username and password 
+  DB <- dbConnect(MySQL(), user='root', password='data', dbname='LibraryDB',
+        host='127.0.0.1')
+
+  # send Query to btain result set
+  rs <- dbSendQuery(DB, query)
+
+  # get elements from result sets and convert to dataframe
+  result <- fetch(rs, -1)
+
+  # close db connection
+  dbDisconnect(DB)
+
+  # return the dataframe
+  return(result)
+}
+```
+
+
+#Example 1
+Retrieve the `Name` and `Address` of all borrowers.
+```{r}
+sqlQuery("SELECT Name, Address 
+         FROM BORROWER;")
+```
+
+#Q1
+For every publisher located in `United States`, list the Publisher `Name` and the published book(s) `Title`(s).
+```{r}
+sqlQuery("SELECT PUBLISHER.Name, BOOK.Title
+         From PUBLISHER,BOOK WHERE PUBLISHER.Address LIKE '%United States%'
+        
+         ;")
+```
+
+
+#Q2
+Display all combinations of `BOOK` `Book_id` and `BOOK_COPIES` `No_of_copies` in the database.
+```{r}
+sqlQuery("SELECT DISTINCT BOOK.Book_id,BOOK_COPIES.No_of_copies
+          From BOOK
+          CROSS JOIN BOOK_COPIES
+        
+         ")
+#INSERT YOUR QUERY HERE
+```
+
+
+#Q3
+Retrieve all book `Title`(s) in alphabetical order.
+```{r}
+sqlQuery( "SELECT Title
+          FROM BOOK
+          ORDER BY Title
+;")
+#INSERT YOUR QUERY HERE
+```
+
+
+#Q4
+Retrieve all unique countries of all publishers
+```{r}
+sqlQuery(" SELECT DISTINCT SUBSTRING_INDEX(Address,',',-1) as Country
+          FROM PUBLISHER
+           ;")
+#INSERT YOUR QUERY HERE
+```
+
+
+#Q5
+Retrieve the `Title`, `Due date`, and borrower `Name` for all books that have been checked out from `Branch_id`= 3025, with the latest `Date_out` first.  Display books with the same `Date_out` in order by the borrower `Name`, and those with the same `Date_out` and borrower Name in order by the book `Title`.
+```{r}
+sqlQuery("SELECT BOOK.Title, BOOK_LOANS.Due_date, BORROWER.Name
+         FROM BOOK
+          INNER JOIN BOOK_LOANS ON BOOK.Book_id=BOOK_LOANS.Book_id
+          INNER JOIN BORROWER ON BOOK_LOANS.Card_no=BORROWER.Card_no
+          WHERE BOOK_LOANS.Branch_id=3025
+          ORDER BY BOOK_LOANS.Date_Out, BORROWER.Name,BOOK.Title
+         ;")
+
+
+#INSERT YOUR QUERY HERE
+```
+
+
+#Q6
+Retrieve the names and card numbers of borrowers who have checked out books from branch `3025` or `3568` sorted by borrower's Card_no in ascending order.
+```{r}
+#INSERT YOUR QUERY HERE
+sqlQuery(" SELECT DISTINCT Name,BORROWER.Card_no
+            FROM BORROWER 
+            INNER JOIN BOOK_LOANS ON BORROWER.Card_no= BOOK_LOANS.Card_no
+            WHERE BOOK_LOANS.Branch_id = 3568 or Branch_id=3025
+            ORDER BY BORROWER.Card_no Asc
+         ;")
+```
+
+
+#Q7
+Find the books (Book titles and Publisher Names) not published by `HarperCollins`, sorted by publisher's name in descending order.
+```{r}
+#INSERT YOUR QUERY HERE
+sqlQuery("SELECT Title, Publisher_name
+          FROM BOOK
+          INNER JOIN PUBLISHER ON BOOK.Publisher_name= PUBLISHER.Name
+          WHERE PUBLISHER.Name != 'HarperCollins'
+          ORDER BY PUBLISHER.Name Desc
+         ;")
+```
+
+
+#Q8
+For each branch (branch ID), find the number of books checked out after 2020-01-26.
+```{r}
+sqlQuery(" SELECT COUNT(BOOK_LOANS.Date_out),BOOK_LOANS.Branch_id
+        From BOOK_LOANS
+        Where BOOK_LOANS.Date_out > 2020-01-26
+        GROUP BY Branch_id
+         
+         ;")
+#INSERT YOUR QUERY HERE
+```
+
+
+#Q9
+Find the borrower name(s) who have borrowed the largest number of books.
+```{r}
+#INSERT YOUR QUERY HERE
+sqlQuery("
+          SELECT BORROWER.NAME
+                    FROM BOOK_LOANS
+                    INNER JOIN BORROWER ON BOOK_LOANS.Card_no= BORROWER.Card_no 
+                    GROUP BY BORROWER.Name 
+                    HAVING COUNT(BOOK_LOANS.Card_no)>= ALL (SELECT COUNT(BOOK_LOANS.Card_no)
+                                                            FROM BOOK_LOANS
+                                                            INNER JOIN BORROWER ON BOOK_LOANS.Card_no= BORROWER.Card_no 
+                                                             GROUP BY BORROWER.Name )
+  
+
+                
+         ;")
+```
+
+
+#Q10
+For each branch and book, calculate then display the number of days between the `Due_date` and `Date_out` along with the BORROWER `Name` and Book `Title`
+```{r}
+sqlQuery(" SELECT  BORROWER.Name, BOOK.Title, BOOK_LOANS.Branch_id,ABS(BOOK_LOANS.Due_date-BOOK_LOANS.Date_out) AS Difference
+            FROM BOOK_LOANS
+            INNER JOIN LIBRARY_BRANCH ON BOOK_LOANS.Branch_id= LIBRARY_BRANCH.Branch_id
+            INNER JOIN BOOK ON BOOK_LOANS.Book_id =  BOOK.Book_id
+            INNER JOIN BORROWER ON BOOK_LOANS.Card_no=BORROWER.Card_no
+            ORDER BY Branch_id,Title
+
+         ;")
+                
+         
+```
+
+
+#Q11
+Retrieve the `Title` and `Due_date` of any book checked out from Branch ID=3025 that is due inclusively between 2019-12-20 and 2020-02-20
+```{r}
+sqlQuery(" SELECT BOOK.Title,BOOK_LOANS.Due_date
+          FROM BOOK_LOANS
+          INNER JOIN BOOK 
+          ON BOOK_LOANS.Book_id=BOOK.Book_id
+          
+          WHERE BOOK_LOANS.Branch_id=3025 and
+          Due_date BETWEEN '2019-12-20' AND '2020-02-20'
+
+
+         ;")
+#INSERT YOUR QUERY HERE
+```
+
+
+#Q12
+Retrieve the `Name`, `Address` and `Card_no` of each borrower whose last name is `Stainbrook` and who borrowed a book from a Branch named either `Bayview` or `Albion`
+```{r}
+#INSERT YOUR QUERY HERE
+sqlQuery("SELECT BORROWER.Name, BORROWER.Address ,BORROWER.Card_no
+          FROM BORROWER 
+          INNER JOIN BOOK_LOANS ON BORROWER.Card_no=BOOK_LOANS.Card_no
+          INNER JOIN LIBRARY_BRANCH ON BOOK_LOANS.Branch_id=LIBRARY_BRANCH.Branch_id
+          WHERE LIBRARY_BRANCH.Branch_name= 'Bayview' or 'Albion' AND
+           BORROWER.Name like '%Stainbrook%'
+          
+
+
+
+           
+         
+         ;")
+```
+
+
+#Q13
+Retrieve the `Title` of each book that has at least 5 copies and exists in either `Bayview` or `Black Creek` library.
+```{r}
+#INSERT YOUR QUERY HERE
+sqlQuery(" SELECT BOOK.Title
+          FROM BOOK 
+          INNER JOIN BOOK_COPIES ON BOOK.Book_id=BOOK_COPIES.Book_id
+          INNER JOIN LIBRARY_BRANCH ON BOOK_COPIES.Branch_id=LIBRARY_BRANCH.Branch_id
+          WHERE BOOK_COPIES.No_of_copies >=5
+          AND LIBRARY_BRANCH.Branch_name = 'Bayview' or 'Black Creek'
+         
+         ;")
+```
+
+
+#Q14
+Retrieve the names of all publishers who published more than one book
+```{r}
+#INSERT YOUR QUERY HERE
+sqlQuery(" 
+            
+              SELECT Publisher_name
+              FROM BOOK
+              GROUP BY Publisher_name
+              HAVING COUNT(Publisher_name)>1
+
+
+         ;")
+```
+
+
+#Q15
+Retrieve the `Title` of each book that has 4, 6, 8 or 10 copies 
+```{r}
+#INSERT YOUR QUERY HERE
+sqlQuery("SELECT DISTINCT Title
+          FROM BOOK
+          INNER JOIN BOOK_COPIES ON BOOK.Book_id=BOOK_COPIES.Book_id
+          WHERE BOOK_COPIES.No_of_copies= 4 or 6 or 8 or 10
+           
+         
+         ;")
+```
+
+
+#Q16
+Find the average of the copies of all books in each branch.
+```{r}
+#INSERT YOUR QUERY HERE
+sqlQuery(" SELECT Branch_id,AVG(No_of_copies)
+          FROM BOOK_COPIES
+          GROUP BY Branch_id
+         ;")
+
+```
+
+
+#Q17
+For each publisher inc. which has published more than one book, retrieve the `Address` and the `Phone` number of its head quarter that is located in the `United States`.
+```{r}
+#INSERT YOUR QUERY HERE
+sqlQuery(" SELECT Name, Address,Phone
+              FROM PUBLISHER
+              INNER JOIN BOOK ON PUBLISHER.Name=BOOK.Publisher_name
+              WHERE PUBLISHER.Address LIKE '%United States%'
+              GROUP BY Name
+              HAVING COUNT(Publisher_name)>1
+
+         ;")
+```
+
+
+#Q18
+Retrieve the names of all books which exist in a library that has the book with the highest number of copies among all books.
+```{r}
+#INSERT YOUR QUERY HERE
+
+    sqlQuery("
+
+              SELECT Title
+              FROM BOOK
+              INNER JOIN BOOK_COPIES ON BOOK.Book_id=BOOK_COPIES.Book_id
+              WHERE BOOK_COPIES.Branch_id=
+              (SELECT Branch_id
+              FROM BOOK_COPIES
+              WHERE No_of_copies =( 
+              SELECT MAX(No_of_copies)
+              FROM BOOK_COPIES))
+              AND BOOK_COPIES.No_of_copies>0
+             
+
+
+             
+             ;")
+```
+
+
+#Q19
+Retrieve book titles and publisher names. Return book details even if the book record is not present for the publisher.
+Hint: Use LEFT JOIN
+```{r}
+#INSERT YOUR QUERY HERE
+sqlQuery("SELECT Book_id,Title, PUBLISHER.Name
+          FROM BOOK
+          LEFT JOIN PUBLISHER ON BOOK.Publisher_name = PUBLISHER.Name
+         
+         ;")
+```
+
+
+#Q20
+Retrieve duplicate records based on `Branch_id` and `Card_no` from `BOOK_LOANS` relation.
+```{r}
+#INSERT YOUR QUERY HERE
+sqlQuery(" SELECT Card_no,Branch_id
+          FROM BOOK_LOANS
+            GROUP BY Card_no , Branch_id 
+            HAVING  COUNT(Card_no)>1 
+         ;")
+```
